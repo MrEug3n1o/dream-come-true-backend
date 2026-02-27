@@ -1,57 +1,64 @@
 import enum
+import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Text, Numeric,
+    Column, String, Boolean, Text, Numeric,
     DateTime, Enum, ForeignKey
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
 
 
-class DreamFormat(str, enum.Enum):
-    ONLINE = "ONLINE"
-    OFFLINE = "OFFLINE"
+def generate_uuid() -> str:
+    return str(uuid.uuid4())
+
+
+class UserRole(str, enum.Enum):
+    DREAMER = "dreamer"
+    ADMIN = "admin"
+    DONOR = "donor"
 
 
 class PersonType(str, enum.Enum):
-    CHILD = "CHILD"
-    ELDERLY = "ELDERLY"
-    ANIMAL_SHELTER = "ANIMAL_SHELTER"
-    OTHER = "OTHER"
+    VETERAN = "veteran"
+    ELDERLY = "elderly"
+    CHILD = "child"
+    ANIMAL_SHELTER = "animal_shelter"
+    OTHER = "other"
 
 
-class DreamStatus(str, enum.Enum):
-    AVAILABLE = "AVAILABLE"
-    RESERVED = "RESERVED"
-    COMPLETED = "COMPLETED"
+class ParticipationFormat(str, enum.Enum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+    HYBRID = "hybrid"
+
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(36), primary_key=True, default=generate_uuid, index=True)
     full_name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    is_admin = Column(Boolean, default=False, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(Enum(UserRole), default=UserRole.DONOR, nullable=False)
+    person_type = Column(Enum(PersonType), nullable=True)  # relevant when role=DREAMER
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    fulfilled_dreams = relationship("Dream", back_populates="fulfilled_by")
+    dreams = relationship("Dream", back_populates="dreamer", foreign_keys="Dream.dreamer_id")
 
 
 class Dream(Base):
     __tablename__ = "dreams"
 
-    id = Column(Integer, primary_key=True, index=True)
+    dream_id = Column(String(36), primary_key=True, default=generate_uuid, index=True)
+    dreamer_id = Column(String(36), ForeignKey("users.user_id"), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    format = Column(Enum(DreamFormat), nullable=False)
-    person_type = Column(Enum(PersonType), nullable=False)
-    budget = Column(Numeric(10, 2), nullable=False)
-    status = Column(Enum(DreamStatus), default=DreamStatus.AVAILABLE, nullable=False)
-    image_url = Column(String(500), nullable=True)
-    fulfilled_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    participation_format = Column(Enum(ParticipationFormat), nullable=False)
+    target_budget = Column(Numeric(10, 2), nullable=False)
+    is_completed = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    fulfilled_by = relationship("User", back_populates="fulfilled_dreams")
+    dreamer = relationship("User", back_populates="dreams", foreign_keys=[dreamer_id])

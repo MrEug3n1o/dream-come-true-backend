@@ -2,13 +2,15 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
-from app.models.models import DreamFormat, PersonType, DreamStatus
+from app.models.models import UserRole, PersonType, ParticipationFormat
 
 
 class UserRegister(BaseModel):
     full_name: str
     email: EmailStr
     password: str
+    role: UserRole = UserRole.DONOR
+    person_type: Optional[PersonType] = None
 
     @field_validator("password")
     @classmethod
@@ -24,10 +26,11 @@ class UserLogin(BaseModel):
 
 
 class UserOut(BaseModel):
-    id: int
+    user_id: str
     full_name: str
     email: str
-    is_admin: bool
+    role: UserRole
+    person_type: Optional[PersonType]
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -39,46 +42,37 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None
 
 
 class DreamCreate(BaseModel):
     title: str
     description: str
-    format: DreamFormat
-    person_type: PersonType
-    budget: Decimal
-    image_url: Optional[str] = None
+    participation_format: ParticipationFormat
+    target_budget: Decimal
+    dreamer_id: Optional[str] = None  # Admin can override; otherwise defaults to current user
 
 
 class DreamUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    format: Optional[DreamFormat] = None
-    person_type: Optional[PersonType] = None
-    budget: Optional[Decimal] = None
-    image_url: Optional[str] = None
-
-
-class DreamStatusUpdate(BaseModel):
-    status: DreamStatus
+    participation_format: Optional[ParticipationFormat] = None
+    target_budget: Optional[Decimal] = None
 
 
 class DreamOut(BaseModel):
-    id: int
+    dream_id: str
+    dreamer_id: str
     title: str
     description: str
-    format: DreamFormat
-    person_type: PersonType
-    budget: Decimal
-    status: DreamStatus
-    image_url: Optional[str]
-    fulfilled_by_id: Optional[int]
+    participation_format: ParticipationFormat
+    target_budget: Decimal
+    is_completed: bool
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-class DreamOutWithFulfiller(DreamOut):
-    fulfilled_by: Optional[UserOut] = None
+class DreamOutWithDreamer(DreamOut):
+    dreamer: Optional[UserOut] = None
