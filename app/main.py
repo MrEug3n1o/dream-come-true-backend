@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import get_settings
 from app.database import Base, engine
@@ -24,11 +25,17 @@ app = FastAPI(
 # CORS — tighten origins in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.APP_ENV == "development" else ["https://yourdomain.com"],
+    allow_origins=["*"] if settings.APP_ENV == "development" else ["https://vovanchu.github.io/Dream-Maker-Project/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"],
+)
+
 
 # Routers
 app.include_router(auth.router)
