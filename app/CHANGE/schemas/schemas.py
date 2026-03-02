@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
-from app.models.models import UserRole, PersonType, ParticipationFormat
+from app.CHANGE.models.models import UserRole, PersonType, ParticipationFormat
 
 
 class UserRegister(BaseModel):
