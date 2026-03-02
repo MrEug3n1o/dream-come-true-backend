@@ -33,7 +33,7 @@ app.add_middleware(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"],
+    allowed_hosts=["https://dream-come-true-backend.onrender.com"],
 )
 
 
