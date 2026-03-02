@@ -1,10 +1,44 @@
 from fastapi import FastAPI
-from app.CHANGE.routers import dreams
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import get_settings
+from app.database import Base, engine
+from app.CHANGE.routers import auth, users, dreams, admin
+
+settings = get_settings()
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Dream Maker API",
-    version="1.0",
-    description="Description of project"
+    description=(
+        "A charity platform connecting donors with people in need. "
+        "Browse and fulfill dreams for children, the elderly, animal shelters, and more."
+    ),
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if settings.APP_ENV == "development" else ["https://yourdomain.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(dreams.router)
+app.include_router(admin.router)
+
+
+@app.get("/", tags=["Health"])
+def root():
+    return {"status": "ok", "message": "Welcome to the Dream Maker API 🌟"}
+
+
+@app.get("/health", tags=["Health"])
+def health_check():
+    return {"status": "healthy"}
