@@ -13,6 +13,8 @@ def generate_uuid() -> str:
     return str(uuid.uuid4())
 
 
+# ─── Enums ────────────────────────────────────────────────────────────────────
+
 class UserRole(str, enum.Enum):
     DREAMER = "dreamer"
     ADMIN = "admin"
@@ -33,6 +35,7 @@ class ParticipationFormat(str, enum.Enum):
     HYBRID = "hybrid"
 
 
+# ─── Models ───────────────────────────────────────────────────────────────────
 
 class User(Base):
     __tablename__ = "users"
@@ -45,6 +48,7 @@ class User(Base):
     person_type = Column(Enum(PersonType), nullable=True)  # relevant when role=DREAMER
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    # Dreams this user submitted (as a dreamer)
     dreams = relationship("Dream", back_populates="dreamer", foreign_keys="Dream.dreamer_id")
 
 

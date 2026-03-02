@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
-from app.CHANGE.models import User, UserRole
-from app.CHANGE.schemas import TokenData
+from app.models.models import User, UserRole
+from app.models.schemas import TokenData
 
 settings = get_settings()
 

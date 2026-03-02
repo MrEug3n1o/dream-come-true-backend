@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.CHANGE.models import Dream, User, UserRole
-from app.CHANGE.schemas import DreamCreate, DreamUpdate, DreamOut, UserOut
+from app.models.models import Dream, User, UserRole
+from app.models.schemas import DreamCreate, DreamUpdate, DreamOut, UserOut
 from app.auth import get_current_admin, get_current_user
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -18,6 +18,7 @@ def create_dream(
     current_admin: User = Depends(get_current_admin),
 ):
     """Create a new dream entry. Admin only."""
+    # dreamer_id can be explicitly set by admin, otherwise admin is the dreamer
     dreamer_id = payload.dreamer_id or current_admin.user_id
     if payload.dreamer_id:
         dreamer = db.query(User).filter(User.user_id == payload.dreamer_id).first()

@@ -2,8 +2,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
-from app.CHANGE.models.models import UserRole, PersonType, ParticipationFormat
+from app.models.models import UserRole, PersonType, ParticipationFormat
 
+
+# ─── Auth & User ─────────────────────────────────────────────────────────────
 
 class UserRegister(BaseModel):
     full_name: str
@@ -44,6 +46,8 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: Optional[str] = None
 
+
+# ─── Dream ───────────────────────────────────────────────────────────────────
 
 class DreamCreate(BaseModel):
     title: str

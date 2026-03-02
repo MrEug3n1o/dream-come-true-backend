@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.CHANGE.models import Dream, ParticipationFormat, PersonType, User
-from app.CHANGE.schemas import DreamOut, DreamOutWithDreamer
+from app.models.models import Dream, ParticipationFormat, PersonType, User
+from app.models.schemas import DreamOut, DreamOutWithDreamer
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/dreams", tags=["Dreams"])
 
@@ -79,4 +80,25 @@ def get_dream(dream_id: str, db: Session = Depends(get_db)):
     dream = db.query(Dream).filter(Dream.dream_id == dream_id).first()
     if not dream:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dream not found")
+    return dream
+
+
+@router.post("/{dream_id}/fulfill", response_model=DreamOut)
+def fulfill_dream(
+    dream_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark a dream as completed. Authenticated donors only."""
+    dream = db.query(Dream).filter(Dream.dream_id == dream_id).first()
+    if not dream:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dream not found")
+    if dream.is_completed:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This dream has already been completed"
+        )
+    dream.is_completed = True
+    db.commit()
+    db.refresh(dream)
     return dream

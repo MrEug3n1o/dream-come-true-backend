@@ -3,10 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.CHANGE.routers import auth, users, dreams, admin
+from app.routers import auth, users, dreams, admin
 
 settings = get_settings()
 
+# Create all tables on startup (use Alembic in production)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -20,6 +21,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# CORS — tighten origins in production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if settings.APP_ENV == "development" else ["https://yourdomain.com"],
@@ -28,6 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Routers
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(dreams.router)
