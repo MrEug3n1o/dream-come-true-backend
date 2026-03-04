@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -8,8 +9,15 @@ from app.routers import auth, users, dreams, admin
 
 settings = get_settings()
 
-# Create all tables on startup (use Alembic in production)
-Base.metadata.create_all(bind=engine)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Only create tables when NOT in test mode.
+    # Tests manage their own schema via the reset_db fixture in conftest.py.
+    if settings.APP_ENV != "test":
+        Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
     title="Dream Maker API",
@@ -20,6 +28,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS — tighten origins in production
@@ -33,10 +42,8 @@ app.add_middleware(
 
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["https://dream-come-true-backend.onrender.com"],
+    allowed_hosts=["*"],
 )
-
-
 # Routers
 app.include_router(auth.router)
 app.include_router(users.router)

@@ -1,8 +1,21 @@
 """
 Shared pytest fixtures for the Dream Maker test suite.
-Uses an in-memory SQLite database that is freshly created for every test.
+
+Key design decisions:
+- Sets APP_ENV=test and DATABASE_URL to a file SQLite BEFORE importing app,
+  so main.py never tries to connect to Postgres at import time.
+- Uses a single shared engine for both the app and fixtures (same file).
+- Recreates all tables before each test for full isolation.
 """
+import os
 import pytest
+
+# ── Must set env vars BEFORE any app imports ─────────────────────────────────
+os.environ["APP_ENV"] = "test"
+os.environ["DATABASE_URL"] = "sqlite:///./test_dreammaker.db"
+os.environ["SECRET_KEY"] = "test-secret-key"
+
+# ── Now safe to import app ────────────────────────────────────────────────────
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,15 +25,10 @@ from app.database import Base, get_db
 from app.models.models import User, Dream, UserRole, PersonType, ParticipationFormat
 from app.auth import hash_password
 
-# ─── In-memory test DB ────────────────────────────────────────────────────────
-
-TEST_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# ── Test DB engine (same URL the app will use thanks to env override) ─────────
+TEST_DB_URL = "sqlite:///./test_dreammaker.db"
+test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
 def override_get_db():
@@ -34,15 +42,15 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
-# ─── Fixtures ─────────────────────────────────────────────────────────────────
+# ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
 def reset_db():
-    """Recreate all tables before each test for full isolation."""
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    """Drop and recreate all tables before every test for full isolation."""
+    Base.metadata.drop_all(bind=test_engine)
+    Base.metadata.create_all(bind=test_engine)
     yield
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture
@@ -56,10 +64,11 @@ def db():
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 
-# ─── User factories ───────────────────────────────────────────────────────────
+# ── User factories ────────────────────────────────────────────────────────────
 
 @pytest.fixture
 def admin_user(db):
@@ -136,11 +145,11 @@ def completed_dream(db, dreamer_user):
     return dream
 
 
-# ─── Auth token helpers ───────────────────────────────────────────────────────
+# ── Auth helpers ──────────────────────────────────────────────────────────────
 
 def get_token(client: TestClient, email: str, password: str) -> str:
     resp = client.post("/auth/login", data={"username": email, "password": password})
-    assert resp.status_code == 200, f"Login failed: {resp.json()}"
+    assert resp.status_code == 200, f"Login failed ({resp.status_code}): {resp.text}"
     return resp.json()["access_token"]
 
 

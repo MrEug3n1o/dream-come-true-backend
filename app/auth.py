@@ -13,7 +13,8 @@ from app.models.schemas import TokenData
 
 settings = get_settings()
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use argon2 — no version-compatibility issues unlike bcrypt 4.x + passlib
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 

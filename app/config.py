@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from functools import lru_cache
 
 
@@ -9,9 +10,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     APP_ENV: str = "development"
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = ConfigDict(env_file=".env", extra="ignore")
 
 
 @lru_cache()
