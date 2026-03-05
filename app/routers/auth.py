@@ -42,7 +42,7 @@ def login(form: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     token = create_access_token(data={"sub": user.user_id})
-    return {"access_token": token, "token_type": "bearer"}
+    return {"access_token": token, "token_type": "bearer", "user_role": user.role}
 
 
 @router.get("/me", response_model=UserOut)

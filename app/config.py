@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
-    APP_ENV: str = "development"
+    APP_ENV: str = "production"
 
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
