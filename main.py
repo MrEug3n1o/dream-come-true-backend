@@ -50,6 +50,7 @@ app.include_router(users.router)
 app.include_router(dreams.router)
 app.include_router(admin.router)
 
+@app.post("/login")
 
 @app.get("/", tags=["Health"])
 def root():
