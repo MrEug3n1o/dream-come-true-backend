@@ -51,6 +51,8 @@ app.include_router(dreams.router)
 app.include_router(admin.router)
 
 @app.post("/login")
+def login():
+    return {"message": "login endpoint"}
 
 @app.get("/", tags=["Health"])
 def root():
