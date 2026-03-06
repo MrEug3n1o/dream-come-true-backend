@@ -30,14 +30,11 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
-origins = [
-    "http://localhost:5173/Dream-Maker-Project/",
-    "https://vovanchu.github.io/Dream-Maker-Project/",
-]
 
+# CORS — tighten origins in production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
