@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import get_db
-from app.models import User
 from app.models.models import User, UserRole
 from app.models.schemas import TokenData
 
@@ -50,7 +49,7 @@ def decode_token(token: str) -> TokenData:
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
-) -> type[User]:
+) -> User:
     token_data = decode_token(token)
     user = db.query(User).filter(User.user_id == token_data.user_id).first()
     if not user:
@@ -67,7 +66,7 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
 def get_optional_user(
     token: Optional[str] = Depends(OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)),
     db: Session = Depends(get_db)
-) -> type[User] | None:
+) -> Optional[User]:
     if not token:
         return None
     try:

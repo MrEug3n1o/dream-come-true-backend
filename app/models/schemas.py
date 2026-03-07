@@ -11,8 +11,6 @@ class UserRegister(BaseModel):
     full_name: str
     email: EmailStr
     password: str
-    role: UserRole = UserRole.DONOR
-    person_type: Optional[PersonType] = None
 
     @field_validator("password")
     @classmethod
@@ -32,7 +30,6 @@ class UserOut(BaseModel):
     full_name: str
     email: str
     role: UserRole
-    person_type: Optional[PersonType]
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -52,23 +49,26 @@ class TokenData(BaseModel):
 class DreamCreate(BaseModel):
     title: str
     description: str
+    person_type: PersonType
     participation_format: ParticipationFormat
     target_budget: Decimal
-    dreamer_id: Optional[str] = None  # Admin can override; otherwise defaults to current user
 
 
 class DreamUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    person_type: Optional[PersonType] = None
     participation_format: Optional[ParticipationFormat] = None
     target_budget: Optional[Decimal] = None
+    is_completed: Optional[bool] = None
 
 
 class DreamOut(BaseModel):
     dream_id: str
-    dreamer_id: str
+    owner_id: str
     title: str
     description: str
+    person_type: PersonType
     participation_format: ParticipationFormat
     target_budget: Decimal
     is_completed: bool
@@ -78,5 +78,5 @@ class DreamOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class DreamOutWithDreamer(DreamOut):
-    dreamer: Optional[UserOut] = None
+class DreamOutWithOwner(DreamOut):
+    owner: Optional[UserOut] = None

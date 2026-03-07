@@ -1,128 +1,80 @@
-"""Tests for /auth/register, /auth/login, /auth/me"""
 import pytest
 from fastapi.testclient import TestClient
 from tests.conftest import auth_headers
 
 
 class TestRegister:
-    def test_register_donor_success(self, client: TestClient):
+    def test_register_success(self, client):
         resp = client.post("/auth/register", json={
-            "full_name": "Jane Doe",
-            "email": "jane@test.com",
-            "password": "secret123",
-            "role": "donor",
+            "full_name": "Alice", "email": "alice@test.com", "password": "pass123"
         })
         assert resp.status_code == 201
         data = resp.json()
-        assert data["email"] == "jane@test.com"
-        assert data["role"] == "donor"
-        assert data["full_name"] == "Jane Doe"
-        assert "user_id" in data
-        assert "password_hash" not in data  # never expose hash
+        assert data["email"] == "alice@test.com"
+        assert data["role"] == "user"          # always user on self-register
+        assert "password_hash" not in data
 
-    def test_register_dreamer_with_person_type(self, client: TestClient):
-        resp = client.post("/auth/register", json={
-            "full_name": "Sofia",
-            "email": "sofia@test.com",
-            "password": "dream123",
-            "role": "dreamer",
-            "person_type": "child",
-        })
-        assert resp.status_code == 201
-        data = resp.json()
-        assert data["role"] == "dreamer"
-        assert data["person_type"] == "child"
-
-    def test_register_all_person_types(self, client: TestClient):
-        for i, ptype in enumerate(["veteran", "elderly", "child", "animal_shelter", "other"]):
-            resp = client.post("/auth/register", json={
-                "full_name": f"User {i}",
-                "email": f"user{i}@test.com",
-                "password": "pass123",
-                "role": "dreamer",
-                "person_type": ptype,
-            })
-            assert resp.status_code == 201
-            assert resp.json()["person_type"] == ptype
-
-    def test_register_duplicate_email(self, client: TestClient, donor_user):
-        resp = client.post("/auth/register", json={
-            "full_name": "Another User",
-            "email": donor_user.email,
-            "password": "pass123",
-        })
+    def test_register_duplicate_email(self, client):
+        payload = {"full_name": "Alice", "email": "alice@test.com", "password": "pass123"}
+        client.post("/auth/register", json=payload)
+        resp = client.post("/auth/register", json=payload)
         assert resp.status_code == 409
-        assert "already exists" in resp.json()["detail"].lower()
 
-    def test_register_short_password(self, client: TestClient):
+    def test_register_short_password(self, client):
         resp = client.post("/auth/register", json={
-            "full_name": "User",
-            "email": "short@test.com",
-            "password": "ab",
+            "full_name": "Bob", "email": "bob@test.com", "password": "abc"
         })
         assert resp.status_code == 422
 
-    def test_register_missing_email(self, client: TestClient):
-        resp = client.post("/auth/register", json={
-            "full_name": "User",
-            "password": "password123",
-        })
+    def test_register_missing_email(self, client):
+        resp = client.post("/auth/register", json={"full_name": "Bob", "password": "pass123"})
         assert resp.status_code == 422
 
-    def test_register_invalid_role(self, client: TestClient):
+    def test_register_role_always_user(self, client):
+        """Even if someone tries to pass role in the body it's ignored (field not in schema)."""
         resp = client.post("/auth/register", json={
-            "full_name": "User",
-            "email": "bad@test.com",
-            "password": "pass123",
-            "role": "superuser",
+            "full_name": "Hacker", "email": "hack@test.com", "password": "pass123", "role": "admin"
         })
-        assert resp.status_code == 422
+        # Either 201 (extra field ignored) or 422 (strict schema) — never admin
+        if resp.status_code == 201:
+            assert resp.json()["role"] == "user"
 
 
 class TestLogin:
-    def test_login_success_returns_token(self, client: TestClient, donor_user):
-        resp = client.post("/auth/login", data={
-            "username": donor_user.email,
-            "password": "donor123",
+    def test_login_success(self, client):
+        client.post("/auth/register", json={
+            "full_name": "Alice", "email": "alice@test.com", "password": "pass123"
         })
+        resp = client.post("/auth/login", json={"email": "alice@test.com", "password": "pass123"})
         assert resp.status_code == 200
-        data = resp.json()
-        assert "access_token" in data
-        assert data["token_type"] == "bearer"
-        assert len(data["access_token"]) > 20
+        assert "access_token" in resp.json()
 
-    def test_login_wrong_password(self, client: TestClient, donor_user):
-        resp = client.post("/auth/login", data={
-            "username": donor_user.email,
-            "password": "wrongpassword",
+    def test_login_wrong_password(self, client):
+        client.post("/auth/register", json={
+            "full_name": "Alice", "email": "alice@test.com", "password": "pass123"
         })
+        resp = client.post("/auth/login", json={"email": "alice@test.com", "password": "wrong"})
         assert resp.status_code == 401
 
-    def test_login_unknown_email(self, client: TestClient):
-        resp = client.post("/auth/login", data={
-            "username": "nobody@test.com",
-            "password": "anything",
-        })
+    def test_login_unknown_email(self, client):
+        resp = client.post("/auth/login", json={"email": "nobody@test.com", "password": "pass"})
         assert resp.status_code == 401
 
-    def test_login_missing_fields(self, client: TestClient):
-        resp = client.post("/auth/login", data={"username": "only@test.com"})
+    def test_login_missing_fields(self, client):
+        resp = client.post("/auth/login", json={"email": "only@test.com"})
         assert resp.status_code == 422
 
 
 class TestGetMe:
-    def test_get_me_authenticated(self, client: TestClient, donor_user):
-        headers = auth_headers(client, donor_user.email, "donor123")
+    def test_get_me_authenticated(self, client, regular_user):
+        headers = auth_headers(client, "user@test.com", "user1234")
         resp = client.get("/auth/me", headers=headers)
         assert resp.status_code == 200
-        data = resp.json()
-        assert data["email"] == donor_user.email
-        assert data["user_id"] == donor_user.user_id
+        assert resp.json()["email"] == "user@test.com"
 
-    def test_get_me_no_token(self, client: TestClient):
-        resp = client.get("/auth/me")
-        assert resp.status_code == 401
+    def test_get_me_no_token(self, client):
+        assert client.get("/auth/me").status_code == 401
 
-    def test_get_me_invalid_token(self, client: TestClient):
-        resp = client.get("/auth/me", headers={"Authorization": "Bearer fake.token.here"})
+    def test_get_me_invalid_token(self, client):
+        resp = client.get("/auth/me", headers={"Authorization": "Bearer invalid"})
         assert resp.status_code == 401

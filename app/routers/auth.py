@@ -2,28 +2,24 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.models import User
-from app.models.schemas import UserRegister, UserLogin, UserOut, Token
+from app.models.models import User, UserRole
+from app.models.schemas import UserRegister, UserOut, Token, UserLogin
 from app.auth import hash_password, verify_password, create_access_token, get_current_user
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(payload: UserRegister, db: Session = Depends(get_db)):
-    """Register a new user account."""
-    existing = db.query(User).filter(User.email == payload.email).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email already exists"
-        )
+    """Register a new user. Role is always 'user' — admins are promoted manually."""
+    if db.query(User).filter(User.email == payload.email).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+
     user = User(
         full_name=payload.full_name,
         email=payload.email,
         password_hash=hash_password(payload.password),
-        role=payload.role,
-        person_type=payload.person_type,
+        role=UserRole.USER,  # always USER on self-registration
     )
     db.add(user)
     db.commit()
@@ -47,5 +43,5 @@ def login(form: UserLogin, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
-    """Get the current authenticated user's profile."""
+    """Return the currently authenticated user's profile."""
     return current_user
