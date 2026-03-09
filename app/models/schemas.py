@@ -80,3 +80,24 @@ class DreamOut(BaseModel):
 
 class DreamOutWithOwner(DreamOut):
     owner: Optional[UserOut] = None
+
+# ─── Password Reset ───────────────────────────────────────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
+
+
+class MessageResponse(BaseModel):
+    message: str
