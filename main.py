@@ -5,7 +5,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.routers import auth, users, dreams, admin
+from app.routers import auth, users, dreams, admin, password_reset
 
 settings = get_settings()
 
@@ -49,6 +49,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(dreams.router)
 app.include_router(admin.router)
+app.include_router(password_reset.router)
 
 @app.post("/login")
 def login():
