@@ -2,7 +2,9 @@ import enum
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Boolean, Text, Numeric, DateTime, Enum, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, MappedColumn, Mapped
+from sqlalchemy.testing.schema import mapped_column
+
 from app.database import Base
 
 
@@ -45,7 +47,7 @@ class User(Base):
     full_name = Column(String(255), nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole, values_callable=enum_values), default=UserRole.USER, nullable=False)
+    role : Mapped[UserRole] = mapped_column(Enum(UserRole, values_callable=enum_values), default=UserRole.USER, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     dreams = relationship("Dream", back_populates="owner", foreign_keys="Dream.owner_id")
