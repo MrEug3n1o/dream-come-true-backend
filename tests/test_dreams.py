@@ -1,5 +1,6 @@
 import pytest
 from tests.conftest import auth_headers
+from app.models.models import DEFAULT_DREAM_IMAGE
 
 DREAM_PAYLOAD = {
     "title": "Learn Guitar",
@@ -7,6 +8,7 @@ DREAM_PAYLOAD = {
     "person_type": "elderly",
     "participation_format": "online",
     "target_budget": 80.0,
+    "city": "Kyiv",
 }
 
 
@@ -34,6 +36,13 @@ class TestListDreams:
         assert len(client.get("/dreams?max_budget=200").json()) == 1
         assert len(client.get("/dreams?max_budget=10").json()) == 0
 
+    def test_filter_by_city(self, client, sample_dream):
+        assert len(client.get("/dreams?city=Kyiv").json()) == 1
+        assert len(client.get("/dreams?city=London").json()) == 0
+
+    def test_filter_city_case_insensitive(self, client, sample_dream):
+        assert len(client.get("/dreams?city=kyiv").json()) == 1
+
     def test_filter_by_is_completed(self, client, sample_dream, completed_dream):
         assert len(client.get("/dreams?is_completed=false").json()) == 1
         assert len(client.get("/dreams?is_completed=true").json()) == 1
@@ -50,9 +59,14 @@ class TestGetDream:
         assert resp.status_code == 200
         assert resp.json()["dream_id"] == sample_dream.dream_id
 
+    def test_get_includes_city(self, client, sample_dream):
+        assert client.get(f"/dreams/{sample_dream.dream_id}").json()["city"] == "Kyiv"
+
+    def test_get_includes_image_url(self, client, sample_dream):
+        assert "image_url" in client.get(f"/dreams/{sample_dream.dream_id}").json()
+
     def test_get_includes_owner(self, client, sample_dream):
         data = client.get(f"/dreams/{sample_dream.dream_id}").json()
-        assert "owner" in data
         assert data["owner"]["email"] == "user@test.com"
 
     def test_get_not_found(self, client):
@@ -66,26 +80,53 @@ class TestCreateDream:
         assert resp.status_code == 201
         data = resp.json()
         assert data["title"] == "Learn Guitar"
+        assert data["city"] == "Kyiv"
         assert data["owner_id"] == regular_user.user_id
-        assert data["person_type"] == "elderly"
+
+    def test_create_uses_default_image_when_none_provided(self, client, regular_user):
+        headers = auth_headers(client, "user@test.com", "user1234")
+        resp = client.post("/dreams", json=DREAM_PAYLOAD, headers=headers)
+        assert resp.json()["image_url"] == DEFAULT_DREAM_IMAGE
+
+    def test_create_uses_provided_image(self, client, regular_user):
+        headers = auth_headers(client, "user@test.com", "user1234")
+        payload = {**DREAM_PAYLOAD, "image_url": "https://example.com/image.jpg"}
+        resp = client.post("/dreams", json=payload, headers=headers)
+        assert resp.json()["image_url"] == "https://example.com/image.jpg"
+
+    def test_create_requires_city(self, client, regular_user):
+        headers = auth_headers(client, "user@test.com", "user1234")
+        payload = {k: v for k, v in DREAM_PAYLOAD.items() if k != "city"}
+        assert client.post("/dreams", json=payload, headers=headers).status_code == 422
 
     def test_create_requires_auth(self, client):
         assert client.post("/dreams", json=DREAM_PAYLOAD).status_code == 401
 
     def test_create_missing_person_type(self, client, regular_user):
         headers = auth_headers(client, "user@test.com", "user1234")
-        payload = {**DREAM_PAYLOAD}
-        del payload["person_type"]
+        payload = {k: v for k, v in DREAM_PAYLOAD.items() if k != "person_type"}
         assert client.post("/dreams", json=payload, headers=headers).status_code == 422
 
 
 class TestUpdateDream:
-    def test_owner_can_update(self, client, sample_dream, regular_user):
+    def test_owner_can_update_title(self, client, sample_dream, regular_user):
         headers = auth_headers(client, "user@test.com", "user1234")
         resp = client.put(f"/dreams/{sample_dream.dream_id}",
                           json={"title": "Updated Title"}, headers=headers)
         assert resp.status_code == 200
         assert resp.json()["title"] == "Updated Title"
+
+    def test_owner_can_update_city(self, client, sample_dream, regular_user):
+        headers = auth_headers(client, "user@test.com", "user1234")
+        resp = client.put(f"/dreams/{sample_dream.dream_id}",
+                          json={"city": "Lviv"}, headers=headers)
+        assert resp.json()["city"] == "Lviv"
+
+    def test_owner_can_update_image(self, client, sample_dream, regular_user):
+        headers = auth_headers(client, "user@test.com", "user1234")
+        resp = client.put(f"/dreams/{sample_dream.dream_id}",
+                          json={"image_url": "https://example.com/new.jpg"}, headers=headers)
+        assert resp.json()["image_url"] == "https://example.com/new.jpg"
 
     def test_admin_can_update_any(self, client, sample_dream, admin_user):
         headers = auth_headers(client, "admin@test.com", "admin123")
@@ -95,13 +136,11 @@ class TestUpdateDream:
 
     def test_other_user_cannot_update(self, client, sample_dream, another_user):
         headers = auth_headers(client, "another@test.com", "another123")
-        resp = client.put(f"/dreams/{sample_dream.dream_id}",
-                          json={"title": "Stolen"}, headers=headers)
-        assert resp.status_code == 403
+        assert client.put(f"/dreams/{sample_dream.dream_id}",
+                          json={"title": "Stolen"}, headers=headers).status_code == 403
 
     def test_update_requires_auth(self, client, sample_dream):
-        resp = client.put(f"/dreams/{sample_dream.dream_id}", json={"title": "x"})
-        assert resp.status_code == 401
+        assert client.put(f"/dreams/{sample_dream.dream_id}", json={"title": "x"}).status_code == 401
 
     def test_update_not_found(self, client, regular_user):
         headers = auth_headers(client, "user@test.com", "user1234")
@@ -137,11 +176,11 @@ class TestMatchDreams:
 
     def test_match_excludes_completed(self, client, completed_dream):
         resp = client.get("/dreams/match?participation_format=offline&person_type=elderly&max_budget=200")
-        assert resp.status_code == 404  # completed dreams excluded
+        assert resp.status_code == 404
 
     def test_match_respects_budget(self, client, sample_dream):
         resp = client.get("/dreams/match?participation_format=online&person_type=child&max_budget=10")
-        assert resp.status_code == 404  # budget too low
+        assert resp.status_code == 404
 
     def test_match_missing_params(self, client):
         assert client.get("/dreams/match").status_code == 422

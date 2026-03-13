@@ -28,8 +28,7 @@ class TestMyDreams:
         assert resp.json()[0]["title"] == "Learn Piano Online"
 
     def test_my_dreams_only_own(self, client, regular_user, another_user, sample_dream, db):
-        from app.models.models import Dream, PersonType, ParticipationFormat
-        # Create a dream owned by another_user
+        from app.models.models import Dream, PersonType, ParticipationFormat, DEFAULT_DREAM_IMAGE
         other_dream = Dream(
             owner_id=another_user.user_id,
             title="Another's Dream",
@@ -37,6 +36,8 @@ class TestMyDreams:
             person_type=PersonType.VETERAN,
             participation_format=ParticipationFormat.HYBRID,
             target_budget=200,
+            city="Odesa",
+            image_url=DEFAULT_DREAM_IMAGE,
         )
         db.add(other_dream); db.commit()
 

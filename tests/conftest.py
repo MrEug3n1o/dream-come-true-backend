@@ -1,7 +1,6 @@
 import os
 import pytest
 
-# Must be set BEFORE any app imports
 os.environ["APP_ENV"] = "test"
 os.environ["DATABASE_URL"] = "sqlite:///./test_dreammaker.db"
 os.environ["SECRET_KEY"] = "test-secret-key"
@@ -12,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from main import app
 from app.database import Base, get_db
-from app.models.models import User, Dream, UserRole, PersonType, ParticipationFormat
+from app.models.models import User, Dream, UserRole, PersonType, ParticipationFormat, DEFAULT_DREAM_IMAGE
 from app.auth import hash_password
 
 TEST_DB_URL = "sqlite:///./test_dreammaker.db"
@@ -54,7 +53,7 @@ def client():
         yield c
 
 
-# ── User factories ────────────────────────────────────────────────────────────
+# ─── User factories ───────────────────────────────────────────────────────────
 
 @pytest.fixture
 def admin_user(db):
@@ -101,6 +100,8 @@ def sample_dream(db, regular_user):
         person_type=PersonType.CHILD,
         participation_format=ParticipationFormat.ONLINE,
         target_budget=100.00,
+        city="Kyiv",
+        image_url=DEFAULT_DREAM_IMAGE,
         is_completed=False,
     )
     db.add(dream); db.commit(); db.refresh(dream)
@@ -116,13 +117,15 @@ def completed_dream(db, regular_user):
         person_type=PersonType.ELDERLY,
         participation_format=ParticipationFormat.OFFLINE,
         target_budget=50.00,
+        city="Lviv",
+        image_url=DEFAULT_DREAM_IMAGE,
         is_completed=True,
     )
     db.add(dream); db.commit(); db.refresh(dream)
     return dream
 
 
-# ── Auth helpers ──────────────────────────────────────────────────────────────
+# ─── Auth helpers ─────────────────────────────────────────────────────────────
 
 def get_token(client: TestClient, email: str, password: str) -> str:
     resp = client.post("/auth/login", json={"email": email, "password": password})

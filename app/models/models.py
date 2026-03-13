@@ -39,6 +39,8 @@ class ParticipationFormat(str, enum.Enum):
 
 
 # ─── Models ───────────────────────────────────────────────────────────────────
+DEFAULT_DREAM_IMAGE = "https://placehold.co/600x400?text=Dream"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -56,16 +58,18 @@ class User(Base):
 class Dream(Base):
     __tablename__ = "dreams"
 
-    dream_id = Column(String(36), primary_key=True, default=generate_uuid, index=True)
-    owner_id = Column(String(36), ForeignKey("users.user_id"), nullable=False)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=False)
-    person_type = Column(Enum(PersonType, values_callable=enum_values), nullable=False)
+    dream_id             = Column(String(36), primary_key=True, default=generate_uuid, index=True)
+    owner_id             = Column(String(36), ForeignKey("users.user_id"), nullable=False)
+    title                = Column(String(255), nullable=False)
+    description          = Column(Text, nullable=False)
+    person_type          = Column(Enum(PersonType, values_callable=enum_values), nullable=False)
     participation_format = Column(Enum(ParticipationFormat, values_callable=enum_values), nullable=False)
-    target_budget = Column(Numeric(10, 2), nullable=False)
-    is_completed = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    target_budget        = Column(Numeric(10, 2), nullable=False)
+    city                 = Column(String(255), nullable=False)
+    image_url            = Column(String(512), nullable=False, default=DEFAULT_DREAM_IMAGE)
+    is_completed         = Column(Boolean, default=False, nullable=False)
+    created_at           = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at           = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     owner = relationship("User", back_populates="dreams", foreign_keys=[owner_id])
 

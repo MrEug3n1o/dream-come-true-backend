@@ -7,6 +7,11 @@ from app.models.models import UserRole, PersonType, ParticipationFormat
 
 # ─── Auth & User ─────────────────────────────────────────────────────────────
 
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
 class UserRegister(BaseModel):
     full_name: str
     email: EmailStr
@@ -20,16 +25,11 @@ class UserRegister(BaseModel):
         return v
 
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-
 class UserOut(BaseModel):
-    user_id: str
-    full_name: str
-    email: str
-    role: UserRole
+    user_id:    str
+    full_name:  str
+    email:      str
+    role:       UserRole
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -37,7 +37,8 @@ class UserOut(BaseModel):
 
 class Token(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type:   str = "bearer"
+    user_role:    UserRole
 
 
 class TokenData(BaseModel):
@@ -47,39 +48,46 @@ class TokenData(BaseModel):
 # ─── Dream ───────────────────────────────────────────────────────────────────
 
 class DreamCreate(BaseModel):
-    title: str
-    description: str
-    person_type: PersonType
+    title:                str
+    description:          str
+    person_type:          PersonType
     participation_format: ParticipationFormat
-    target_budget: Decimal
+    target_budget:        Decimal
+    city:                 str
+    image_url:            Optional[str] = None   # falls back to default if omitted
 
 
 class DreamUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    person_type: Optional[PersonType] = None
+    title:                Optional[str]                  = None
+    description:          Optional[str]                  = None
+    person_type:          Optional[PersonType]           = None
     participation_format: Optional[ParticipationFormat] = None
-    target_budget: Optional[Decimal] = None
-    is_completed: Optional[bool] = None
+    target_budget:        Optional[Decimal]              = None
+    city:                 Optional[str]                  = None
+    image_url:            Optional[str]                  = None
+    is_completed:         Optional[bool]                 = None
 
 
 class DreamOut(BaseModel):
-    dream_id: str
-    owner_id: str
-    title: str
-    description: str
-    person_type: PersonType
+    dream_id:             str
+    owner_id:             str
+    title:                str
+    description:          str
+    person_type:          PersonType
     participation_format: ParticipationFormat
-    target_budget: Decimal
-    is_completed: bool
-    created_at: datetime
-    updated_at: datetime
+    target_budget:        Decimal
+    city:                 str
+    image_url:            str
+    is_completed:         bool
+    created_at:           datetime
+    updated_at:           datetime
 
     model_config = {"from_attributes": True}
 
 
 class DreamOutWithOwner(DreamOut):
     owner: Optional[UserOut] = None
+
 
 # ─── Password Reset ───────────────────────────────────────────────────────────
 
