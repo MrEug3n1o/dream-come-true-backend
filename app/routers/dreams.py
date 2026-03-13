@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.models import Dream, User, UserRole, PersonType, ParticipationFormat
+from app.models.models import Dream, User, UserRole, PersonType, ParticipationFormat, DEFAULT_DREAM_IMAGE
 from app.models.schemas import DreamCreate, DreamUpdate, DreamOut, DreamOutWithOwner
 from app.auth import get_current_user, get_optional_user
 
@@ -20,7 +20,6 @@ def _get_dream_or_404(dream_id: str, db: Session) -> Dream:
 
 
 def _require_ownership_or_admin(dream: Dream, current_user: User):
-    """Raise 403 if the user is neither the dream owner nor an admin."""
     if current_user.role != UserRole.ADMIN and dream.owner_id != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -35,6 +34,7 @@ def list_dreams(
     participation_format: Optional[ParticipationFormat] = Query(None),
     person_type:          Optional[PersonType]           = Query(None),
     max_budget:           Optional[Decimal]              = Query(None),
+    city:                 Optional[str]                  = Query(None, description="Filter by city"),
     is_completed:         Optional[bool]                 = Query(None),
     sort_by:              Optional[str]                  = Query(None, description="'date' or 'budget'"),
     db: Session = Depends(get_db),
@@ -48,6 +48,8 @@ def list_dreams(
         query = query.filter(Dream.person_type == person_type)
     if max_budget is not None:
         query = query.filter(Dream.target_budget <= max_budget)
+    if city:
+        query = query.filter(Dream.city.ilike(f"%{city}%"))
     if is_completed is not None:
         query = query.filter(Dream.is_completed == is_completed)
 
@@ -96,7 +98,7 @@ def create_dream(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a dream. The logged-in user becomes the owner."""
+    """Create a dream. Uses default image if none provided."""
     dream = Dream(
         owner_id=current_user.user_id,
         title=payload.title,
@@ -104,6 +106,8 @@ def create_dream(
         person_type=payload.person_type,
         participation_format=payload.participation_format,
         target_budget=payload.target_budget,
+        city=payload.city,
+        image_url=payload.image_url or DEFAULT_DREAM_IMAGE,
     )
     db.add(dream)
     db.commit()
