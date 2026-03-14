@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.models import User, UserRole
-from app.models.schemas import UserRegister, UserOut, Token, UserLogin
-from app.auth import hash_password, verify_password, create_access_token, get_current_user
+from app.models.schemas import UserLogin, UserRegister, UserOut, Token, MessageResponse
+from app.auth import (
+    hash_password, verify_password, create_access_token,
+    get_current_user, COOKIE_NAME, COOKIE_MAX_AGE
+)
+from app.config import get_settings
 
+settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
@@ -19,7 +24,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
         full_name=payload.full_name,
         email=payload.email,
         password_hash=hash_password(payload.password),
-        role=UserRole.USER,  # always USER on self-registration
+        role=UserRole.USER,
     )
     db.add(user)
     db.commit()
@@ -28,17 +33,37 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(form: UserLogin, db: Session = Depends(get_db)):
-    """Login with email + password. Returns a JWT access token."""
-    user = db.query(User).filter(User.email == form.email).first()
-    if not user or not verify_password(form.password, user.password_hash):
+def login(payload: UserLogin, response: Response, db: Session = Depends(get_db)):
+    """
+    Login with email + password.
+    Sets an HttpOnly cookie containing the JWT — never exposed to JavaScript.
+    """
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
-    token = create_access_token(data={"sub": user.user_id})
-    return {"access_token": token, "token_type": "bearer", "user_role": user.role}
+
+    token = create_access_token({"sub": user.user_id})
+
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,                              # JS cannot read this cookie
+        secure=settings.APP_ENV == "production",    # HTTPS only in prod
+        samesite="lax",                             # CSRF protection
+        max_age=COOKIE_MAX_AGE,
+    )
+
+    return {"user_role": user.role}
+
+
+@router.post("/logout", response_model=MessageResponse)
+def logout(response: Response):
+    """Clear the auth cookie."""
+    response.delete_cookie(key=COOKIE_NAME, httponly=True, samesite="lax")
+    return {"message": "Logged out successfully"}
 
 
 @router.get("/me", response_model=UserOut)

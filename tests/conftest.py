@@ -49,7 +49,7 @@ def db():
 
 @pytest.fixture
 def client():
-    with TestClient(app) as c:
+    with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
 
@@ -127,11 +127,13 @@ def completed_dream(db, regular_user):
 
 # ─── Auth helpers ─────────────────────────────────────────────────────────────
 
-def get_token(client: TestClient, email: str, password: str) -> str:
+def login(client: TestClient, email: str, password: str) -> TestClient:
+    """Login and return client — cookie is stored automatically by TestClient."""
     resp = client.post("/auth/login", json={"email": email, "password": password})
     assert resp.status_code == 200, f"Login failed ({resp.status_code}): {resp.text}"
-    return resp.json()["access_token"]
+    return client
 
 
-def auth_headers(client: TestClient, email: str, password: str) -> dict:
-    return {"Authorization": f"Bearer {get_token(client, email, password)}"}
+def auth_client(client: TestClient, email: str, password: str) -> TestClient:
+    """Alias for login() — logs in and returns the same client with cookie set."""
+    return login(client, email, password)

@@ -1,9 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from app.models.models import UserRole, PersonType, ParticipationFormat
 
+MAX_BUDGET = Decimal("15000")
 
 # ─── Auth & User ─────────────────────────────────────────────────────────────
 
@@ -36,9 +37,8 @@ class UserOut(BaseModel):
 
 
 class Token(BaseModel):
-    access_token: str
-    token_type:   str = "bearer"
-    user_role:    UserRole
+    token_type: str = "bearer"
+    user_role:  UserRole
 
 
 class TokenData(BaseModel):
@@ -54,7 +54,16 @@ class DreamCreate(BaseModel):
     participation_format: ParticipationFormat
     target_budget:        Decimal
     city:                 str
-    image_url:            Optional[str] = None   # falls back to default if omitted
+    image_url:            Optional[str] = None
+
+    @field_validator("target_budget")
+    @classmethod
+    def budget_limit(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("Budget must be greater than 0")
+        if v > MAX_BUDGET:
+            raise ValueError(f"Budget cannot exceed {MAX_BUDGET}")
+        return v
 
 
 class DreamUpdate(BaseModel):
@@ -66,6 +75,16 @@ class DreamUpdate(BaseModel):
     city:                 Optional[str]                  = None
     image_url:            Optional[str]                  = None
     is_completed:         Optional[bool]                 = None
+
+    @field_validator("target_budget")
+    @classmethod
+    def budget_limit(cls, v: Optional[Decimal]) -> Optional[Decimal]:
+        if v is not None:
+            if v <= 0:
+                raise ValueError("Budget must be greater than 0")
+            if v > MAX_BUDGET:
+                raise ValueError(f"Budget cannot exceed {MAX_BUDGET}")
+        return v
 
 
 class DreamOut(BaseModel):

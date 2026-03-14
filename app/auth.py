@@ -3,8 +3,7 @@ from typing import Optional
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, status, Cookie
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -37,7 +36,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def decode_token(token: str) -> str:
-    """Decode JWT and return user_id (sub claim). Raises 401 on any failure."""
+    """Decode JWT and return user_id. Raises 401 on any failure."""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
@@ -48,22 +47,25 @@ def decode_token(token: str) -> str:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
 
-http_bearer = HTTPBearer(auto_error=False)
+# ─── Cookie settings ──────────────────────────────────────────────────────────
+
+COOKIE_NAME = "access_token"
+COOKIE_MAX_AGE = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60  # seconds
 
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+    access_token: Optional[str] = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    """Require a valid Bearer token. Raises 401 if missing or invalid."""
-    from app.models.models import User  # local import to avoid circular
+    """Read JWT from HttpOnly cookie. Raises 401 if missing or invalid."""
+    from app.models.models import User
 
-    if not credentials:
+    if not access_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    user_id = decode_token(credentials.credentials)
+    user_id = decode_token(access_token)
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -71,8 +73,8 @@ def get_current_user(
 
 
 def get_current_admin(current_user=Depends(get_current_user)):
-    """Require the current user to have the admin role. Raises 403 otherwise."""
-    from app.models.models import UserRole  # local import to avoid circular
+    """Require admin role. Raises 403 otherwise."""
+    from app.models.models import UserRole
 
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
@@ -80,13 +82,13 @@ def get_current_admin(current_user=Depends(get_current_user)):
 
 
 def get_optional_user(
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+    access_token: Optional[str] = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    """Return the current user if a valid token is present, otherwise None."""
-    if not credentials:
+    """Return current user if cookie present, else None."""
+    if not access_token:
         return None
     try:
-        return get_current_user(credentials=credentials, db=db)
+        return get_current_user(access_token=access_token, db=db)
     except HTTPException:
         return None
