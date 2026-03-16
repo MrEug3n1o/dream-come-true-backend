@@ -47,7 +47,11 @@ def forgot_password(
     )
     db.add(reset_token)
     db.commit()
-
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning("SMTP_USER=%s SMTP_PASSWORD_SET=%s",
+                   settings.SMTP_USER,
+                   bool(settings.SMTP_PASSWORD))
     send_reset_email(
         to_email=user.email,
         reset_token=token_str,

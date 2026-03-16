@@ -5,6 +5,7 @@ Can be monkey-patched in tests via dependency injection.
 """
 import smtplib
 import logging
+from fastapi import HTTPException, status
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -60,6 +61,9 @@ def send_reset_email(to_email: str, reset_token: str, full_name: str) -> None:
             server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             server.sendmail(settings.EMAIL_FROM, to_email, msg.as_string())
             logger.info("Reset email sent to %s", to_email)
-    except smtplib.SMTPException as exc:
+    except Exception as exc:
         logger.error("Failed to send reset email to %s: %s", to_email, exc)
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to send reset email. Please try again later."
+        )
