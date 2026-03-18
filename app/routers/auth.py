@@ -36,7 +36,8 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
 def login(payload: UserLogin, response: Response, db: Session = Depends(get_db)):
     """
     Login with email + password.
-    Sets an HttpOnly cookie containing the JWT — never exposed to JavaScript.
+    Sets an HttpOnly cookie with SameSite=None so it works across
+    different origins (e.g. frontend on localhost, backend on Render).
     """
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
@@ -50,19 +51,24 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
-        httponly=True,                              # JS cannot read this cookie
-        secure=settings.APP_ENV == "production",    # HTTPS only in prod
-        samesite="lax",                             # CSRF protection
+        httponly=True,      # JS cannot read this cookie
+        secure=True,        # Must be True when SameSite=None — required by all browsers
+        samesite="none",    # Allows cross-site requests (frontend and backend on different origins)
         max_age=COOKIE_MAX_AGE,
     )
 
-    return {"user_role": user.role}
+    return {"token_type": "bearer", "user_role": user.role}
 
 
 @router.post("/logout", response_model=MessageResponse)
 def logout(response: Response):
     """Clear the auth cookie."""
-    response.delete_cookie(key=COOKIE_NAME, httponly=True, samesite="lax")
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        httponly=True,
+        secure=True,
+        samesite="none",
+    )
     return {"message": "Logged out successfully"}
 
 
