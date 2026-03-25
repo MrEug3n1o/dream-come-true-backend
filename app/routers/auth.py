@@ -13,6 +13,32 @@ from app.config import get_settings
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+IS_PROD = settings.APP_ENV == "production"
+
+
+def set_auth_cookie(response: Response, token: str):
+    """
+    Production:  SameSite=None; Secure=True  — required for cross-origin (frontend on different domain)
+    Development: SameSite=Lax;  Secure=False — works over HTTP for local testing and pytest
+    """
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=IS_PROD,
+        samesite="none" if IS_PROD else "lax",
+        max_age=COOKIE_MAX_AGE,
+    )
+
+
+def clear_auth_cookie(response: Response):
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        httponly=True,
+        secure=IS_PROD,
+        samesite="none" if IS_PROD else "lax",
+    )
+
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(payload: UserRegister, db: Session = Depends(get_db)):
@@ -34,11 +60,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(payload: UserLogin, response: Response, db: Session = Depends(get_db)):
-    """
-    Login with email + password.
-    Sets an HttpOnly cookie with SameSite=None so it works across
-    different origins (e.g. frontend on localhost, backend on Render).
-    """
+    """Login and set HttpOnly cookie with JWT."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
@@ -47,28 +69,14 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
         )
 
     token = create_access_token({"sub": user.user_id})
-
-    response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        httponly=True,      # JS cannot read this cookie
-        secure=True,        # Must be True when SameSite=None — required by all browsers
-        samesite="none",    # Allows cross-site requests (frontend and backend on different origins)
-        max_age=COOKIE_MAX_AGE,
-    )
-
+    set_auth_cookie(response, token)
     return {"token_type": "bearer", "user_role": user.role}
 
 
 @router.post("/logout", response_model=MessageResponse)
 def logout(response: Response):
     """Clear the auth cookie."""
-    response.delete_cookie(
-        key=COOKIE_NAME,
-        httponly=True,
-        secure=True,
-        samesite="none",
-    )
+    clear_auth_cookie(response)
     return {"message": "Logged out successfully"}
 
 
