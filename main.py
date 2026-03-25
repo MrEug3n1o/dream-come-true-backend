@@ -32,26 +32,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
-    schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-        }
-    }
-    for path in schema["paths"].values():
-        for method in path.values():
-            if "security" in method:
-                method["security"] = [{"BearerAuth": []}]
-    app.openapi_schema = schema
-    return schema
-
-app.openapi = custom_openapi
-
 # CORS — tighten origins in production
 app.add_middleware(
     CORSMiddleware,
