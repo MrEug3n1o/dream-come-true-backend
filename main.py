@@ -6,7 +6,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.routers import auth, users, dreams, admin, password_reset, statistics
+from app.routers import auth, users, dreams, admin, password_reset, statistics, google_auth
 
 settings = get_settings()
 
@@ -47,6 +47,7 @@ app.add_middleware(
 )
 # Routers
 
+app.include_router(google_auth.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(dreams.router)
