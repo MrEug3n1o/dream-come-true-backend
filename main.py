@@ -6,7 +6,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.routers import auth, users, dreams, admin, password_reset, statistics, google_auth
+from app.routers import auth, users, dreams, admin, password_reset, statistics, google_auth, image_upload
 
 settings = get_settings()
 
@@ -46,7 +46,7 @@ app.add_middleware(
     allowed_hosts=["*"],
 )
 # Routers
-
+app.include_router(image_upload.router)
 app.include_router(google_auth.router)
 app.include_router(auth.router)
 app.include_router(users.router)
