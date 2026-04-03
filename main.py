@@ -6,7 +6,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.config import get_settings
 from app.database import Base, engine
-from app.routers import auth, users, dreams, admin, password_reset, statistics, google_auth, image_upload
+from app.routers import auth, users, dreams, admin, password_reset, statistics, google_auth, image_upload, payments
 
 settings = get_settings()
 
@@ -54,6 +54,7 @@ app.include_router(dreams.router)
 app.include_router(admin.router)
 app.include_router(password_reset.router)
 app.include_router(statistics.router)
+app.include_router(payments.router)
 
 @app.post("/login")
 def login():
