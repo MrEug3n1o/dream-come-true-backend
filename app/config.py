@@ -15,7 +15,10 @@ class Settings(BaseSettings):
 
 
 class EmailSettings(BaseSettings):
-    RESEND_API_KEY: str
+    SMTP_HOST: str
+    SMTP_PORT: int
+    SMTP_USER: str
+    SMTP_PASSWORD: str
     EMAIL_FROM: str
     RESET_TOKEN_EXPIRE_MINUTES: int
 
@@ -34,13 +37,6 @@ class CloudinarySettings(BaseSettings):
     CLOUDINARY_CLOUD_NAME: str
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET: str
-
-    model_config = ConfigDict(env_file=".env", extra="ignore")
-
-class StripeSettings(BaseSettings):
-    STRIPE_SECRET_KEY: str
-    STRIPE_WEBHOOK_SECRET: str
-    STRIPE_PUBLISHABLE_KEY: str
 
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
@@ -63,8 +59,3 @@ def get_google_settings() -> GoogleSettings:
 @lru_cache()
 def get_cloudinary_settings() -> CloudinarySettings:
     return CloudinarySettings()
-
-
-@lru_cache()
-def get_stripe_settings() -> StripeSettings:
-    return StripeSettings()

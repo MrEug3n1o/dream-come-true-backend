@@ -1,29 +1,35 @@
+import smtplib
 import logging
-import resend
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from app.config import get_email_settings, get_settings
 
 logger = logging.getLogger(__name__)
 
 
 def _send(to_email: str, subject: str, html_body: str) -> None:
-    """Send email via Resend API (works on Render — no SMTP ports needed)."""
+    """Core SMTP send via Gmail. Skips silently if not configured."""
     settings = get_email_settings()
 
-    if not settings.RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY not set — skipping email to %s: %s", to_email, subject)
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        logger.warning("SMTP not configured — skipping email to %s: %s", to_email, subject)
         return
 
-    resend.api_key = settings.RESEND_API_KEY
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"]    = settings.EMAIL_FROM
+    msg["To"]      = to_email
+    msg.attach(MIMEText(html_body, "html"))
 
     try:
-        resend.Emails.send({
-            "from": settings.EMAIL_FROM,
-            "to": to_email,
-            "subject": subject,
-            "html": html_body,
-        })
-        logger.info("Email sent to %s: %s", to_email, subject)
-    except Exception as exc:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.sendmail(settings.EMAIL_FROM, to_email, msg.as_string())
+            logger.info("Email sent to %s: %s", to_email, subject)
+    except smtplib.SMTPException as exc:
         logger.error("Failed to send email to %s: %s", to_email, exc)
         raise
 
@@ -64,11 +70,11 @@ def send_dream_completed_email(
     <html><body>
       <h2>Your dream came true, {owner_name}!</h2>
       <p>
-        We have wonderful news — <strong>{donor_name}</strong> has just fulfilled
-        your dream: <strong>"{dream_title}"</strong>.
+        <strong>{donor_name}</strong> has just fulfilled your dream:
+        <strong>"{dream_title}"</strong>.
       </p>
       <p>Thank you for sharing your dream with the world.</p>
-      <hr/><small>Dream Maker — making dreams come true 🌟</small>
+      <hr/><small>Dream Maker — making dreams come true</small>
     </body></html>
     """
     _send(to_email, f'Your dream "{dream_title}" has been fulfilled! 🎉', html)
