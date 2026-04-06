@@ -15,10 +15,7 @@ class Settings(BaseSettings):
 
 
 class EmailSettings(BaseSettings):
-    SMTP_HOST: str
-    SMTP_PORT: int
-    SMTP_USER: str
-    SMTP_PASSWORD: str
+    RESEND_API_KEY: str
     EMAIL_FROM: str
     RESET_TOKEN_EXPIRE_MINUTES: int
 
