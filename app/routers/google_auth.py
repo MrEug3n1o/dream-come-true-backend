@@ -1,4 +1,5 @@
 import httpx
+from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -28,15 +29,17 @@ def set_auth_cookie(response: Response, token: str):
 def google_login():
     """Redirect user to Google's OAuth2 consent screen."""
     gs = get_google_settings()
-    params = (
-        "https://accounts.google.com/o/oauth2/v2/auth"
-        f"?client_id={gs.GOOGLE_CLIENT_ID}"
-        f"&redirect_uri={gs.GOOGLE_REDIRECT_URI}"
-        "&response_type=code"
-        "&scope=openid%20email%20profile"
-        "&access_type=offline"
-    )
-    return RedirectResponse(url=params)
+
+    params = urlencode({
+        "client_id":     gs.GOOGLE_CLIENT_ID,
+        "redirect_uri":  gs.GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope":         "openid email profile",
+        "access_type":   "offline",
+    })
+
+    url = f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
+    return RedirectResponse(url=url)
 
 
 @router.get("/google/callback")
@@ -56,11 +59,11 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
         token_resp = await client.post(
             "https://oauth2.googleapis.com/token",
             data={
-                "code": code,
-                "client_id": gs.GOOGLE_CLIENT_ID,
+                "code":          code,
+                "client_id":     gs.GOOGLE_CLIENT_ID,
                 "client_secret": gs.GOOGLE_CLIENT_SECRET,
-                "redirect_uri": gs.GOOGLE_REDIRECT_URI,
-                "grant_type": "authorization_code",
+                "redirect_uri":  gs.GOOGLE_REDIRECT_URI,
+                "grant_type":    "authorization_code",
             },
         )
 
@@ -70,10 +73,9 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
             detail="Failed to exchange Google auth code"
         )
 
-    google_tokens = token_resp.json()
-    google_access_token = google_tokens.get("access_token")
+    google_access_token = token_resp.json().get("access_token")
 
-    # ── Step 2: fetch user info from Google ───────────────────────────────────
+    # ── Step 2: fetch user info ───────────────────────────────────────────────
     async with httpx.AsyncClient() as client:
         userinfo_resp = await client.get(
             "https://www.googleapis.com/oauth2/v2/userinfo",
@@ -87,7 +89,7 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
         )
 
     google_user = userinfo_resp.json()
-    email: str = google_user.get("email")
+    email:     str = google_user.get("email")
     full_name: str = google_user.get("name", email)
 
     if not email:
@@ -98,13 +100,11 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
 
     # ── Step 3: find or create user ───────────────────────────────────────────
     user = db.query(User).filter(User.email == email).first()
-
     if not user:
-        # First time login with Google — create account automatically
         user = User(
             full_name=full_name,
             email=email,
-            password_hash="",   # no password — Google auth only
+            password_hash="",
             role=UserRole.USER,
         )
         db.add(user)

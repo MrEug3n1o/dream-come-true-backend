@@ -58,7 +58,7 @@ app.include_router(statistics.router)
 
 @app.get("/", tags=["Health"])
 def root():
-    return {"status": "ok", "message": "Welcome to the Dream Maker API 🌟"}
+    return {"status": "ok", "message": "Welcome to the Dream Maker API"}
 
 
 @app.get("/health", tags=["Health"])
