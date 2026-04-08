@@ -113,6 +113,6 @@ async def google_callback(code: str, response: Response, db: Session = Depends(g
 
     # ── Step 4: set cookie and redirect to frontend ───────────────────────────
     token = create_access_token({"sub": user.user_id})
-    redirect = RedirectResponse(url=f"{settings.FRONTEND_URL}/auth/callback")
+    redirect = RedirectResponse(url=f"{settings.FRONTEND_URL}/#/auth/callback")
     set_auth_cookie(redirect, token)
     return redirect
